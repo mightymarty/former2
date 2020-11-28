@@ -1,13 +1,11 @@
 FROM node:14.8.0-buster-slim
 
-WORKDIR /home/node/app
-COPY . .
+WORKDIR /usr/src/app
 
-RUN apt-get update && \
-    npm -g install 
+COPY package*.json ./
 
-COPY --chown=node:node . .
+RUN npm install
 
 COPY . .
 
-CMD ["node", "main.js"]
+ENTRYPOINT [ "node", "main.js" ]
