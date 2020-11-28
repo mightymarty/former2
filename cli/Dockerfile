@@ -1,8 +1,13 @@
 FROM node:14.8.0-buster-slim
 
-WORKDIR /former2
+WORKDIR /home/node/app
+COPY . .
 
 RUN apt-get update && \
-    npm -g install former2
+    npm -g install 
 
-ENTRYPOINT ["former2"]
+COPY --chown=node:node . .
+
+COPY . .
+
+CMD ["node", "main.js"]

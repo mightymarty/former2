@@ -12,11 +12,20 @@ const cliprogress = require('cli-progress');
 const logplease = require('logplease');
 const _colors = require('colors');
 const pjson = require('./package.json');
+const { opts } = require("commander");
 const CLI = true;
 
 logplease.setLogLevel('NONE');
 const awslog = logplease.create('AWS');
 AWS.config.logger = awslog;
+
+//if (opts.clientKey && opts.clientSecret) {
+//    var config = new AWS.Config({
+//        accessKeyId: opts.clientKey, secretAccessKey: opts.clientSecret, region: 'us-west-2'
+//      });
+//    AWS.config.update(config);
+//    console.log('configuration loaded!')
+//}
 
 var cli_resources = [];
 var check_objects = [];
@@ -197,6 +206,61 @@ async function main(opts) {
         if (opts.outputTerraform) {
             fs.writeFileSync(opts.outputTerraform, mapped_outputs['tf']);
         }
+
+        // Create S3 service object
+        var config = new AWS.Config({
+            accessKeyId: opts.sourceKey, secretAccessKey: opts.sourceSecret, region: 'us-west-2'
+            });
+        AWS.config.update(config);
+        console.log('configuration loaded2!')
+        s3 = new AWS.S3({apiVersion: '2006-03-01', config: config});
+
+
+        if (opts.outputS3CfKey) {
+            // call S3 to retrieve upload file to specified bucket
+            var uploadParams = {Bucket: opts.outputS3Bucket, Key: opts.outputS3CfKey, Body: ''};
+
+            // Configure the file stream and obtain the upload parameters
+            var fileStream = fs.createReadStream(opts.outputCloudformation);
+            fileStream.on('error', function(err) {
+            console.log('File Error', err);
+            });
+            uploadParams.Body = fileStream;
+            var path = require('path');
+            uploadParams.Key = path.basename(opts.outputCloudformation);
+
+            // call S3 to retrieve upload file to specified bucket
+            s3.upload (uploadParams, function (err, data) {
+            if (err) {
+                console.log("Error", err);
+            } if (data) {
+                console.log("Upload Success", data.Location);
+            }
+            });
+        }
+
+        if (opts.outputS3TfKey) {
+            // call S3 to retrieve upload file to specified bucket
+            var uploadParams = {Bucket: opts.outputS3Bucket, Key: opts.outputS3TfKey, Body: ''};
+
+            // Configure the file stream and obtain the upload parameters
+            var fileStream = fs.createReadStream(opts.outputTerraform);
+            fileStream.on('error', function(err) {
+            console.log('File Error', err);
+            });
+            uploadParams.Body = fileStream;
+            var path = require('path');
+            uploadParams.Key = path.basename(opts.outputTerraform);
+
+            // call S3 to retrieve upload file to specified bucket
+            s3.upload (uploadParams, function (err, data) {
+            if (err) {
+                console.log("Error", err);
+            } if (data) {
+                console.log("Upload Success", data.Location);
+            }
+            });
+        }
     }
 }
 
@@ -218,6 +282,13 @@ cliargs
     .option('--profile <profilename>', 'uses the profile specified from the shared credentials file')
     .option('--proxy <protocol://host:port>', 'use proxy')
     .option('--debug', 'log debugging messages')
+    //.option('--client-key <value>', 'key to access remote user account')
+    //.option('--client-secret <value>', 'secret to access remote user account')
+    .option('--source-key <value>', 'key to access local user account')
+    .option('--source-secret <value>', 'secret to access local user account')
+    .option('--output-s3-bucket <value>', 's3 bucket for storing cf and tf keys')
+    .option('--output-s3-cf-key <value>', 's3 key for cf')
+    .option('--output-s3-tf-key <value>', 's3 key for tf')
     .action(async (opts) => {
         // The followings are here to silence Node runtime complaining about event emitter listeners
         // due to the number of TLS requests that suddenly go out to AWS APIs. This is harmless here
